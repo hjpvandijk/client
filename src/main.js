@@ -5,6 +5,8 @@ import EventPackager from './modules/eventPackager';
 import MetadataHandler from './modules/metadataHandler';
 import SpecificFrameworkEvents from './modules/specificFrameworkEvents';
 import EventHandlerController from './modules/eventHandlerController';
+import RecordRTCPromisesHandler from 'recordrtc';
+import eventPackager from './modules/eventPackager';
 
 export default (function(root) {
     var _public = {};
@@ -109,6 +111,50 @@ export default (function(root) {
 
         Config.sessionData.clearSessionIDKey();
     };
+
+    let recorder, stream;
+    var displayMediaOptions = {
+        video: {
+          aspectRatio: 1920/1080,
+          frameRate: 60,
+          cursor: "always"
+          
+        },
+        audio: false
+      };
+
+    async function startRecording() {
+        stream = await navigator.mediaDevices.getDisplayMedia(displayMediaOptions);
+        var mimeType = 'video/webm';
+        if(MediaRecorder.isTypeSupported('video/webm;codecs=h264')){
+            mimeType = 'video/webm;codecs=h264';
+        } else if (MediaRecorder.isTypeSupported('video/webm;codecs=vp9')){
+            mimeType = 'video/webm;codecs=vp9';
+        } else if (MediaRecorder.isTypeSupported('video/webm;codecs=vp8')){
+            mimeType = 'video/webm;codecs=vp8';
+        }
+        recorder = new RecordRTCPromisesHandler(stream, {
+            type: 'video',
+            timeSlice: 5000,
+            mimeType: mimeType,
+            ondataavailable: async function(blob) {
+                Dispatcher.sendObject(blob);
+            }
+          });
+
+        recorder.startRecording();  
+    }
+
+
+    _public.startScreenCapture = async function() {
+        await startRecording();
+        Config.sessionData.setScreenCaptureTimestamp(new Date());
+    }
+
+    _public.stopScreenCapture = async function() {
+        await recorder.stopRecording();
+        stream.getVideoTracks()[0].stop();
+    }
 
     return _public;
 })(window);

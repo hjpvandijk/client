@@ -39,6 +39,7 @@ export default (function(root) {
     var _libraryLoadTimestamp = null;  // The time at which the dispatcher loads -- for measuring the beginning of a session more accurately.
 
     var _cache = null;
+    var _blobcache = null;
 
     _public.dispatcherType = 'websocket';
 
@@ -56,6 +57,7 @@ export default (function(root) {
         _initWebsocket();
 
         _cache = [];
+        _blobcache = [];
         _isActive = true;
         return true;
     };
@@ -82,13 +84,23 @@ export default (function(root) {
 
     _public.sendObject = function(objectToSend) {
         if (_isActive) {
-            _cache.push(objectToSend);
-            Helpers.console(objectToSend, 'Dispatcher', false);
+            if(objectToSend instanceof Blob){
+                _blobcache.push(objectToSend);
+                Helpers.console(objectToSend, 'Dispatcher', false);
 
-            if (_cache.length >= Defaults.dispatcher.cacheSize) {
-                _flushCache();
+                // if (_blobcache.length >= Defaults.dispatcher.cacheSize) {
+                //     _flushCache();
+                // }
+            } 
+            else{
+                _cache.push(objectToSend);
+                Helpers.console(objectToSend, 'Dispatcher', false);
+
+                
             }
-
+            if (_cache.length + _blobcache.length >= Defaults.dispatcher.cacheSize) {
+                                _flushCache();
+                            }
             return;
         }
 
@@ -292,9 +304,17 @@ export default (function(root) {
         };
 
         _websocket.send(JSON.stringify(_getMessageObject('logEvents', payload)));
+
+        _blobcache.forEach(chunk => {
+            _websocket.send(chunk);
+
+        });
+
         Helpers.console(`Cache flushed.`, 'Dispatcher', false);
 
+
         _cache = [];
+        _blobcache = [];
     };
     
     return _public;
